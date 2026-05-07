@@ -1,0 +1,106 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Hub Mashup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-4xl font-bold mb-6 text-center text-blue-400">🎮 Game Hub Mashup</h1>
+        
+        <!-- Interfaz de Búsqueda -->
+        <div class="flex gap-4 justify-center mb-10">
+            <input type="text" id="searchInput" placeholder="Ej. Counter-Strike, Skyrim..." 
+                class="px-4 py-2 w-1/2 rounded text-black outline-none focus:ring-2 focus:ring-blue-500">
+            <button onclick="searchGame()" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded font-bold transition">Buscar</button>
+        </div>
+
+        <!-- Indicador de Caché -->
+        <div id="cacheIndicator" class="text-center text-sm font-bold mb-4 hidden"></div>
+
+        <!-- Resultados (Se inyectarán con JS) -->
+        <div id="results" class="hidden grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            <!-- RAWG: Info Principal -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-bold mb-4 text-purple-400" id="gameTitle">Título</h2>
+                <img id="gameImg" src="" alt="Portada" class="w-full h-48 object-cover rounded mb-4">
+                <p><strong>Nota (Metacritic):</strong> <span id="gameRating" class="text-green-400"></span></p>
+                <p><strong>Lanzamiento:</strong> <span id="gameDate"></span></p>
+            </div>
+
+            <div class="space-y-6">
+                <!-- CheapShark: Ofertas -->
+                <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                    <h3 class="text-xl font-bold mb-4 text-green-400">💰 Mejores precios (CheapShark)</h3>
+                    <ul id="dealsList" class="space-y-2"></ul>
+                </div>
+
+                <!-- Reddit: Comunidad -->
+                <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                    <h3 class="text-xl font-bold mb-4 text-orange-400">🗣️ Discusiones (Reddit)</h3>
+                    <ul id="redditList" class="space-y-3"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function searchGame() {
+            const query = document.getElementById('searchInput').value;
+            if (!query) return;
+
+            document.getElementById('cacheIndicator').classList.add('hidden');
+            
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                const result = await response.json();
+                
+                // Mostrar si vino de caché o API real
+                const cacheInd = document.getElementById('cacheIndicator');
+                cacheInd.classList.remove('hidden');
+                cacheInd.innerText = result.source === 'cache' ? '⚡ Cargado desde la memoria caché (++ rápido)' : '🌐 Cargado desde las APIs externas';
+                cacheInd.className = result.source === 'cache' ? 'text-center text-sm font-bold mb-4 text-green-400' : 'text-center text-sm font-bold mb-4 text-blue-400';
+
+                const data = result.data;
+                document.getElementById('results').classList.remove('hidden');
+
+                // Renderizar Info del juego
+                if (data.gameInfo) {
+                    document.getElementById('gameTitle').innerText = data.gameInfo.name;
+                    document.getElementById('gameImg').src = data.gameInfo.background_image;
+                    document.getElementById('gameRating').innerText = data.gameInfo.metacritic || 'N/A';
+                    document.getElementById('gameDate').innerText = data.gameInfo.released || 'N/A';
+                }
+
+                // Renderizar Ofertas
+                const dealsList = document.getElementById('dealsList');
+                dealsList.innerHTML = '';
+                if (data.deals.length > 0) {
+                    data.deals.forEach(deal => {
+                        dealsList.innerHTML += `<li class="border-b border-gray-700 pb-2">Juego: ${deal.external} <br><span class="text-green-300 font-bold">$${deal.cheapest}</span></li>`;
+                    });
+                } else {
+                    dealsList.innerHTML = '<li class="text-gray-400">No hay ofertas disponibles.</li>';
+                }
+
+                // Renderizar Reddit
+                const redditList = document.getElementById('redditList');
+                redditList.innerHTML = '';
+                if (data.discussions.length > 0) {
+                    data.discussions.forEach(post => {
+                        redditList.innerHTML += `<li><a href="https://reddit.com${post.permalink}" target="_blank" class="text-blue-400 hover:underline">💬 ${post.title}</a><br><small class="text-gray-400">Subreddit: ${post.subreddit}</small></li>`;
+                    });
+                } else {
+                    redditList.innerHTML = '<li class="text-gray-400">No se encontraron discusiones.</li>';
+                }
+            } catch (error) {
+                alert('Hubo un error al buscar el juego.');
+            }
+        }
+    </script>
+</body>
+</html>
